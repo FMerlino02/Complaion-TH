@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complaion</title>
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div class="flex flex-col h-screen bg-gradient-to-br from-green-200 to-green-300">
+        <header class="flex justify-between items-center p-4 bg-white bg-opacity-20 backdrop-blur border-b border-white border-opacity-20">
+            <div class="flex items-center gap-2">
+                <img src="{{ url_for('static', filename='images/logo.svg') }}" alt="Complaion Logo" class="w-40">
+            </div>
+            <button id="mobileMenuBtn" class="block md:hidden text-2xl text-gray-800 p-2">☰</button>
+        </header>
+
+        <main class="flex flex-col md:grid md:grid-cols-[280px,1fr,320px] gap-4 p-4 h-[calc(100vh-70px)] md:h-[calc(100vh-80px)] overflow-auto">
+            <aside id="sidebar" class="bg-white bg-opacity-80 rounded-lg p-6 overflow-y-auto shadow backdrop-blur">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">Files</h2>
+                <ul id="fileList" class="space-y-2">
+                    <li class="file-item">20/02/2024_12:39.mp4</li>
+                    <li class="file-item">24/02/2024_12:39.mp4</li>
+                    <li class="file-item">28/02/2024_12:39.mp4</li>
+                    <li class="file-item">30/02/2024_12:39.mp4</li>
+                    <li class="file-item">01/03/2024_12:39.mp4</li>
+                    <li class="file-item">2/03/2024_12:39.mp4</li>
+                    <li class="file-item">6/03/2024_12:39.mp4</li>
+                    <li class="file-item">8/04/2024_12:39.mp4</li>
+                    <li class="file-item">10/04/2024_12:39.mp4</li>
+                    <li class="file-item">20/02/2024_12:39.mp4</li>
+                    <li class="file-item">20/02/2024_12:39.mp4</li>
+                    <li class="file-item">20/02/2024_12:39.mp4</li>
+                    <li class="file-item">20/02/2024_12:39.mp4</li>
+                </ul>
+            </aside>
+
+            <div class="flex flex-col gap-4 overflow-hidden">
+                <div class="bg-white rounded-lg p-4 shadow-md">
+                    <div class="aspect-video bg-black rounded-md flex items-center justify-center">
+                        <div id="playButton" class="w-20 h-20 bg-white bg-opacity-90 rounded-full flex items-center justify-center text-2xl text-gray-800 cursor-pointer transition-transform hover:scale-110">▶</div>
+                    </div>
+                </div>
+
+                <div class="flex-1 bg-white bg-opacity-80 rounded-lg p-6 shadow backdrop-blur flex flex-col">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">Notes</h2>
+                    <textarea id="notesTextarea" class="flex-1 border border-gray-200 rounded-lg p-4 bg-white bg-opacity-70 min-h-[120px] resize-none focus:outline-none focus:border-green-300 focus:ring-2 focus:ring-green-200" placeholder="Add your notes here..."></textarea>
+                </div>
+            </div>
+
+            <aside id="transcriptPanel" class="bg-white bg-opacity-80 rounded-lg p-6 overflow-y-auto shadow backdrop-blur">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">Transcript</h2>
+                <div class="text-gray-700 text-sm leading-relaxed">
+                    <p>Transcript content will appear here when you select a video file...</p>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
