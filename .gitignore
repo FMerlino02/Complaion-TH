@@ -157,3 +157,4 @@ local_settings.py
 *.zip
 *.tar.gz
 *.rar
+.vercel
