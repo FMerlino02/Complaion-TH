@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const fileItem = event.target.closest('.file-item');
         if (fileItem) {
             const meetingId = fileItem.dataset.id;
-
+             
             document.querySelectorAll('.file-item').forEach(item => {
                 item.classList.remove('active');
                 item.classList.remove('font-semibold');
@@ -44,6 +44,7 @@ document.addEventListener('DOMContentLoaded', function() {
             fileItem.classList.add('active');
             fileItem.classList.add('font-semibold');
 
+            currentMeetingId = meetingId;
             fetchMeetingDetails(meetingId);
             
             if (window.innerWidth <= 768) {
@@ -56,7 +57,14 @@ document.addEventListener('DOMContentLoaded', function() {
     let notesTimeout;
     notesTextarea.addEventListener('input', debounce(function() {
         showNotification('Notes saved automatically');
-        // TODO: send notesTextarea.value to backend
+        // update notes on server
+        if (currentMeetingId) {
+            fetch(`${API_BASE}/${currentMeetingId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ note_riunione: notesTextarea.value })
+            }).catch(err => console.error('Failed to save notes', err));
+        }
     }, 1500));
 
 
@@ -71,16 +79,33 @@ document.addEventListener('DOMContentLoaded', function() {
             if (meetings.length > 0) {
                 meetings.forEach(meeting => {
                     const li = document.createElement('li');
-                    li.className = 'file-item p-2 rounded-md cursor-pointer hover:bg-green-100 transition-colors';
-                    li.textContent = meeting.titolo_chiamata;
+                    li.className = 'file-item p-2 rounded-md cursor-pointer hover:bg-green-100 transition-colors group relative';
                     li.dataset.id = meeting.id_chiamata;
                     li.dataset.videoFile = meeting.video_riunione;
+                    li.innerHTML = `
+                        <span class="flex justify-between items-center">
+                            <span>${meeting.titolo_chiamata}</span>
+                            <button class="delete-btn text-red-500 hover:text-red-700 hidden group-hover:block" title="Delete Meeting">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </span>
+                    `;
                     fileList.appendChild(li);
+
+
+                    li.querySelector('.delete-btn').addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        pendingDelete = { li, meetingId: meeting.id_chiamata };
+                        deleteModal.classList.remove('hidden');
+                    });
                 });
                 const firstItem = fileList.querySelector('.file-item');
                 if (firstItem) {
                     firstItem.classList.add('active');
                     firstItem.classList.add('font-semibold');
+                    currentMeetingId = firstItem.dataset.id;
                     fetchMeetingDetails(firstItem.dataset.id);
                 }
             } else {
@@ -112,7 +137,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/);
                 if (ytMatch) {
                     const videoId = ytMatch[1];
-                    // Embed YouTube video with full-featured iframe attributes
                     embedHtml = `
                         <iframe width="100%" height="100%"
                                 src="https://www.youtube.com/embed/${videoId}"
@@ -192,7 +216,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 2000);
     }
 
-    // Meeting modal logic
     const addMeetingBtn = document.getElementById('addMeetingBtn');
     const meetingModal = document.getElementById('meetingModal');
     const cancelBtn = document.getElementById('cancelBtn');
@@ -251,7 +274,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         body: JSON.stringify({ trascrizione: fakeTranscript })
                     });
                     showNotification('Transcript generated');
-                    // Refresh list and details
                     fetchAndDisplayMeetings();
                     fetchMeetingDetails(newId);
                 } catch (e) {
@@ -264,4 +286,43 @@ document.addEventListener('DOMContentLoaded', function() {
             showNotification('Failed to add meeting');
         }
     });
+
+
+
+    const deleteModal = document.getElementById('deleteModal');
+    const deleteCancelBtn = document.getElementById('deleteCancelBtn');
+    const deleteConfirmBtn = document.getElementById('deleteConfirmBtn');
+    let pendingDelete = null;
+
+    if (deleteCancelBtn) {
+        deleteCancelBtn.addEventListener('click', () => {
+            deleteModal.classList.add('hidden');
+            pendingDelete = null;
+        });
+    }
+    if (deleteConfirmBtn) {
+        deleteConfirmBtn.addEventListener('click', async () => {
+            if (!pendingDelete) return;
+            const { li, meetingId } = pendingDelete;
+            try {
+                const res = await fetch(`${API_BASE}/${meetingId}`, { method: 'DELETE' });
+                if (res.ok) {
+                    li.remove();
+                    if (li.classList.contains('active')) {
+                        document.getElementById('videoContainer').innerHTML = '';
+                        notesTextarea.value = '';
+                        transcriptPanel.innerHTML = '<h2 class="text-xl font-semibold text-gray-800 mb-4">Transcript</h2><p class="text-gray-500">Transcript will appear here when you select a meeting.</p>';
+                    }
+                    showNotification('Meeting deleted');
+                } else {
+                    showNotification('Failed to delete meeting');
+                }
+            } catch (err) {
+                console.error('Delete failed', err);
+                showNotification('Failed to delete meeting');
+            }
+            deleteModal.classList.add('hidden');
+            pendingDelete = null;
+        });
+    }
 });

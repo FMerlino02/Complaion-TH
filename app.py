@@ -62,23 +62,34 @@ def get_riunioni():
     except Exception:
         return jsonify({"error": "An error occurred while fetching meetings"}), 500
 
-@app.route('/api/riunioni/<int:id_chiamata>', methods=['GET','PUT'])
+@app.route('/api/riunioni/<int:id_chiamata>', methods=['GET','PUT','DELETE'])
 def get_riunione_details(id_chiamata):
     if riunioni_collection is None:
         return jsonify({"error": "Database connection not available"}), 500
     if request.method == 'PUT':
         data = request.get_json() or {}
-        trascrizione = data.get('trascrizione')
-        if trascrizione is None:
-            return jsonify({"error": "Missing trascrizione"}), 400
+        update_fields = {}
+        # allow updating transcript and/or notes
+        if 'trascrizione' in data:
+            update_fields['trascrizione'] = data['trascrizione']
+        if 'note_riunione' in data:
+            update_fields['note_riunione'] = data['note_riunione']
+        if not update_fields:
+            return jsonify({"error": "No valid fields to update"}), 400
         try:
             riunioni_collection.update_one(
                 {"id_chiamata": id_chiamata},
-                {"$set": {"trascrizione": trascrizione}}
+                {"$set": update_fields}
             )
             return jsonify({"success": True}), 200
         except Exception:
-            return jsonify({"error": "Failed to update transcript"}), 500
+            return jsonify({"error": "Failed to update meeting"}), 500
+    if request.method == 'DELETE':
+        try:
+            riunioni_collection.delete_one({"id_chiamata": id_chiamata})
+            return jsonify({"success": True}), 200
+        except Exception:
+            return jsonify({"error": "Failed to delete meeting"}), 500
     try:
         riunione = riunioni_collection.find_one({"id_chiamata": id_chiamata}, {"_id": 0})
         if riunione:
