@@ -1,24 +1,28 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // DOM elements
     const mobileMenuBtn = document.getElementById('mobileMenuBtn');
     const sidebar = document.getElementById('sidebar');
     const fileList = document.getElementById('fileList');
-    const playButton = document.getElementById('playButton');
     const notesTextarea = document.getElementById('notesTextarea');
     const transcriptPanel = document.getElementById('transcriptPanel');
     const videoTitleElement = document.getElementById('videoTitle');
 
-    // --- Initial Data Fetching ---
+    const API_BASE = '/api/riunioni';
+
+    function debounce(fn, delay) {
+        let timeout;
+        return (...args) => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => fn(...args), delay);
+        };
+    }
+
     fetchAndDisplayMeetings();
-
-    // --- Event Listeners ---
-
-    // Mobile menu functionality
+    
     if (mobileMenuBtn) {
         mobileMenuBtn.addEventListener('click', () => sidebar.classList.toggle('mobile-open'));
     }
 
-    // Close mobile menu when clicking outside
+    
     document.addEventListener('click', (event) => {
         if (window.innerWidth <= 768 && sidebar.classList.contains('mobile-open')) {
             if (!sidebar.contains(event.target) && !mobileMenuBtn.contains(event.target)) {
@@ -27,81 +31,56 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // File selection functionality
     fileList.addEventListener('click', (event) => {
         const fileItem = event.target.closest('.file-item');
         if (fileItem) {
             const meetingId = fileItem.dataset.id;
+
+            document.querySelectorAll('.file-item').forEach(item => {
+                item.classList.remove('active');
+                item.classList.remove('font-semibold');
+            });
             
-            // Remove active class from all items
-            document.querySelectorAll('.file-item').forEach(item => item.classList.remove('active'));
-            
-            // Add active class to clicked item
             fileItem.classList.add('active');
-            
-            // Fetch and display details for the selected meeting
+            fileItem.classList.add('font-semibold');
+
             fetchMeetingDetails(meetingId);
             
-            // Close mobile menu if open
             if (window.innerWidth <= 768) {
                 sidebar.classList.remove('mobile-open');
             }
         }
     });
+    
 
-    // Play/Pause button functionality
-    const playIcon = document.getElementById('playIcon');
-    const pauseIcon = document.getElementById('pauseIcon');
-    playButton.addEventListener('click', function() {
-        const isPaused = !pauseIcon.classList.contains('hidden');
-        if (isPaused) {
-            playIcon.classList.remove('hidden');
-            pauseIcon.classList.add('hidden');
-            playButton.style.transform = 'scale(1)';
-        } else {
-            playIcon.classList.add('hidden');
-            pauseIcon.classList.remove('hidden');
-            playButton.style.transform = 'scale(0.9)';
-        }
-        // TODO: Integrate real video play/pause logic
-    });
-
-    // Auto-save notes functionality
     let notesTimeout;
-    notesTextarea.addEventListener('input', function() {
-        clearTimeout(notesTimeout);
-        notesTimeout = setTimeout(() => {
-            // In a real app, you would send this to your backend to save
-            console.log('Notes auto-saved:', this.value);
-            showNotification('Notes saved automatically');
-        }, 1500);
-    });
+    notesTextarea.addEventListener('input', debounce(function() {
+        showNotification('Notes saved automatically');
+        // TODO: send notesTextarea.value to backend
+    }, 1500));
 
-    // --- Core Functions ---
 
-    /**
-     * Fetches the list of meetings from the API and populates the sidebar.
-     */
+    
     async function fetchAndDisplayMeetings() {
         try {
             const response = await fetch('/api/riunioni');
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             const meetings = await response.json();
 
-            fileList.innerHTML = ''; // Clear existing list
+            fileList.innerHTML = '';
             if (meetings.length > 0) {
                 meetings.forEach(meeting => {
                     const li = document.createElement('li');
                     li.className = 'file-item p-2 rounded-md cursor-pointer hover:bg-green-100 transition-colors';
                     li.textContent = meeting.titolo_chiamata;
-                    li.dataset.id = meeting.id_chiamata; // Store ID for later
-                    li.dataset.videoFile = meeting.video_riunione; // Store video filename
+                    li.dataset.id = meeting.id_chiamata;
+                    li.dataset.videoFile = meeting.video_riunione;
                     fileList.appendChild(li);
                 });
-                // Automatically select and load the first meeting
                 const firstItem = fileList.querySelector('.file-item');
                 if (firstItem) {
                     firstItem.classList.add('active');
+                    firstItem.classList.add('font-semibold');
                     fetchMeetingDetails(firstItem.dataset.id);
                 }
             } else {
@@ -113,46 +92,64 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    /**
-     * Fetches the full details for a specific meeting and updates the UI.
-     * @param {string} meetingId - The ID of the meeting to fetch.
-     */
+    
     async function fetchMeetingDetails(meetingId) {
         try {
             const response = await fetch(`/api/riunioni/${meetingId}`);
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             const details = await response.json();
 
-            // Update notes
             notesTextarea.value = details.note_riunione || 'No notes for this meeting.';
 
-            // Update video title
             if (videoTitleElement) {
                 videoTitleElement.textContent = details.titolo_chiamata;
             }
 
-            // Update transcript panel
+            const videoContainer = document.getElementById('videoContainer');
+            if (videoContainer) {
+                const url = details.video_riunione;
+                let embedHtml = '';
+                const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/);
+                if (ytMatch) {
+                    const videoId = ytMatch[1];
+                    // Embed YouTube video with full-featured iframe attributes
+                    embedHtml = `
+                        <iframe width="100%" height="100%"
+                                src="https://www.youtube.com/embed/${videoId}"
+                                title="${details.titolo_chiamata}"
+                                frameborder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                referrerpolicy="strict-origin-when-cross-origin"
+                                allowfullscreen
+                                class="rounded-md">
+                        </iframe>
+                    `;
+                } else {
+                    embedHtml = `
+                        <video controls class="w-full h-full object-cover rounded-md bg-black">
+                            <source src="${url}" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                    `;
+                }
+                videoContainer.innerHTML = embedHtml;
+            }
+
             updateTranscriptPanel(details.trascrizione);
 
         } catch (error) {
             console.error(`Failed to fetch details for meeting ${meetingId}:`, error);
-            // Optionally show an error in the UI
         }
     }
 
-    /**
-     * Renders the transcript data into the transcript panel.
-     * @param {object} trascrizione - The transcript object from the API.
-     */
+    
     function updateTranscriptPanel(trascrizione) {
-        // Clear previous content
         transcriptPanel.innerHTML = '<h2 class="text-xl font-semibold text-gray-800 mb-4">Transcript</h2>';
 
         if (trascrizione && trascrizione.testo_completo) {
             const container = document.createElement('div');
             container.className = 'space-y-4 text-sm';
 
-            // Full text section
             const fullTextSection = document.createElement('div');
             fullTextSection.innerHTML = `
                 <h3 class="font-semibold text-gray-700 mb-2">Full Text</h3>
@@ -160,7 +157,6 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
             container.appendChild(fullTextSection);
 
-            // Segments section
             if (trascrizione.segmenti && trascrizione.segmenti.length > 0) {
                 const segmentsSection = document.createElement('div');
                 segmentsSection.innerHTML = `<h3 class="font-semibold text-gray-700 mb-2 mt-4">Segments</h3>`;
@@ -184,18 +180,88 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    /**
-     * Shows a temporary notification message on the screen.
-     * @param {string} message - The message to display.
-     */
+    
     function showNotification(message) {
         const notification = document.createElement('div');
         notification.textContent = message;
-        notification.className = 'fixed top-5 right-5 bg-green-600 text-white py-2 px-4 rounded-lg shadow-lg transition-opacity duration-300';
+        notification.className = 'fixed top-5 left-1/2 transform -translate-x-1/2 bg-green-600 text-white py-2 px-4 rounded-lg shadow-lg transition-opacity duration-300';
         document.body.appendChild(notification);
         setTimeout(() => {
             notification.style.opacity = '0';
             setTimeout(() => document.body.removeChild(notification), 300);
         }, 2000);
     }
+
+    // Meeting modal logic
+    const addMeetingBtn = document.getElementById('addMeetingBtn');
+    const meetingModal = document.getElementById('meetingModal');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const newTitle = document.getElementById('newTitle');
+    const newURL = document.getElementById('newURL');
+    const newNotes = document.getElementById('newNotes');
+
+    if (addMeetingBtn) {
+        addMeetingBtn.addEventListener('click', () => {
+            meetingModal.classList.remove('hidden');
+            meetingModal.classList.add('flex');
+        });
+    }
+    cancelBtn.addEventListener('click', () => {
+        meetingModal.classList.add('hidden');
+    });
+    saveBtn.addEventListener('click', async () => {
+        const title = newTitle.value.trim();
+        const url = newURL.value.trim();
+        const notes = newNotes.value.trim();
+        if (!title || !url) {
+            showNotification('Title and URL are required.');
+            return;
+        }
+        try {
+            const resp = await fetch(API_BASE, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ titolo_chiamata: title, video_riunione: url, note_riunione: notes })
+            });
+            if (!resp.ok) throw new Error('Error adding meeting');
+            const result = await resp.json();
+            const newId = result.id_chiamata;
+
+            meetingModal.classList.add('hidden');
+            newTitle.value = '';
+            newURL.value = '';
+            newNotes.value = '';
+
+            showNotification('Generating transcript...');
+            setTimeout(async () => {
+                const fakeTranscript = {
+                    testo_completo: `It demonstrates an example of the video summary with multiple segments.`,
+                    segmenti: [
+                        { start_time: 0, end_time: 10, testo: "Introduction and overview of the video content." },
+                        { start_time: 10, end_time: 25, testo: "Detailed explanation of the main topic with examples." },
+                        { start_time: 25, end_time: 40, testo: "Additional insights and best practices discussed." },
+                        { start_time: 40, end_time: 60, testo: "Closing remarks and next steps for the viewer." }
+                    ]
+                };
+                try {
+                    await fetch(`${API_BASE}/${newId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ trascrizione: fakeTranscript })
+                    });
+                    showNotification('Transcript generated');
+                    // Refresh list and details
+                    fetchAndDisplayMeetings();
+                    fetchMeetingDetails(newId);
+                } catch (e) {
+                    console.error('Failed to update transcript', e);
+                    showNotification('Failed to generate transcript');
+                }
+            }, 2000);
+        } catch (err) {
+            console.error(err);
+            showNotification('Failed to add meeting');
+        }
+    });
 });
