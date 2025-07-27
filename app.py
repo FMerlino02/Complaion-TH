@@ -1,12 +1,9 @@
 from flask import Flask, render_template, jsonify
 from pymongo import MongoClient
 from bson import ObjectId
-#
 import json
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
+from flask import send_from_directory
 
 # Custom JSON encoder to handle MongoDB's ObjectId
 class JSONEncoder(json.JSONEncoder):
@@ -15,7 +12,7 @@ class JSONEncoder(json.JSONEncoder):
             return str(o)
         return super(JSONEncoder, self).default(o)
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static', static_url_path='/static')
 app.json_encoder = JSONEncoder
 
 MONGO_URI = os.getenv("MONGO_URI")
@@ -24,6 +21,10 @@ DB_NAME = os.getenv("DB_NAME")
 client = MongoClient(MONGO_URI)
 db = client[DB_NAME]
 riunioni_collection = db.riunioni
+
+@app.route('/static/<path:filename>')
+def static_files(filename):
+    return send_from_directory(app.static_folder, filename)
 
 @app.route('/')
 def index():
