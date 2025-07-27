@@ -9,7 +9,6 @@ from datetime import datetime, timezone
 
 load_dotenv()
 
-# Custom JSON encoder to handle MongoDB's ObjectId
 class JSONEncoder(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, ObjectId):
@@ -19,7 +18,7 @@ class JSONEncoder(json.JSONEncoder):
 app = Flask(__name__, static_folder='static', static_url_path='/static')
 app.json_encoder = JSONEncoder
 
-MONGO_URI = os.getenv("MONGO_URI")
+MONGO_URI = os.getenv("MONGODB_URI", os.getenv("MONGO_URI"))
 DB_NAME = os.getenv("DB_NAME")
 
 client = MongoClient(MONGO_URI)
@@ -69,7 +68,6 @@ def get_riunione_details(id_chiamata):
     if request.method == 'PUT':
         data = request.get_json() or {}
         update_fields = {}
-        # allow updating transcript and/or notes
         if 'trascrizione' in data:
             update_fields['trascrizione'] = data['trascrizione']
         if 'note_riunione' in data:
